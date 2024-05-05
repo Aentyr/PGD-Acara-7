@@ -1,0 +1,143 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using AxMapWinGIS;
+using MapWinGIS;
+
+namespace DEKSTOP9
+{
+    public partial class formIdentify : Form
+    {
+        formMainWindow formMainWindowObject;
+        public formIdentify(formMainWindow formMainWindowIntialized)
+        {
+            InitializeComponent();
+            formMainWindowObject = formMainWindowIntialized;
+
+        }
+
+        private void Button_Edit_Identify_Click(object sender, EventArgs e)
+        {
+            if (btnEditIdentify.Text == "Edit")
+            {
+                string input = Microsoft.VisualBasic.Interaction.InputBox("Please Enter Your Password!", "Password", "", -1, -1);
+
+                if (input == "Naufal")
+                {
+                    TextBox_Jenis_Identify.Enabled = true;
+                    TextBox_Nama_Identify.ReadOnly = false;
+                    btnBrowseIdentify.Enabled = true;
+                    btnHapusIdentify.Visible = true;
+                    btnEditIdentify.Text = "Save";
+                }
+
+                else
+                {
+                    TextBox_Jenis_Identify.Enabled = false;
+                    TextBox_Nama_Identify.ReadOnly = true;
+                    btnBrowseIdentify.Enabled = false;
+                    btnHapusIdentify.Visible = false;
+                    btnEditIdentify.Text = "Edit";
+                    MessageBox.Show("Wrong Password");
+                }
+
+
+            }
+            else if (btnEditIdentify.Text == "Save")
+            {
+                Shapefile sf = formMainWindowObject.axMap1.get_Shapefile(formMainWindowObject.handleCagarBudaya);
+
+                sf.StartEditingTable();
+                sf.EditCellValue(sf.Table.get_FieldIndexByName("jenis_Aset"),
+                    Convert.ToInt32(TextBox_Identify.Text), TextBox_Jenis_Identify.Text);
+                sf.EditCellValue(sf.Table.get_FieldIndexByName("atas_nama"),
+                    Convert.ToInt32(TextBox_Identify.Text), TextBox_Nama_Identify.Text);
+                sf.EditCellValue(sf.Table.get_FieldIndexByName("foto"),
+                    Convert.ToInt32(TextBox_Identify.Text), TextBox_Foto_Identify.Text);
+                sf.StopEditingTable();
+                sf.Save();
+
+                btnEditIdentify.Text = "Edit";
+                TextBox_Jenis_Identify.Enabled = false;
+                TextBox_Nama_Identify.ReadOnly = true;
+                btnBrowseIdentify.Enabled = false;
+                btnHapusIdentify.Visible = false;
+                formMainWindowObject.axMap1.Redraw2(tkRedrawType.RedrawAll);
+                formMainWindowObject.axMap1.Refresh();
+                this.Hide();
+                MessageBox.Show("Berhasil tersimpan");
+            }
+
+        }
+
+        private void btnBrowseIdentify_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog openFileDialog1 = new OpenFileDialog();
+            openFileDialog1.Title = "Browse Photo";
+            openFileDialog1.InitialDirectory = @"C:\";
+            openFileDialog1.Filter = "JPG (*.jpg)|*.jpg|JPEG (*.jpeg)|*.jpeg|PNG (*.png)|*.png|All Files (*.*)|*.*";
+            openFileDialog1.FilterIndex = 1;
+            openFileDialog1.RestoreDirectory = true;
+
+            if ((openFileDialog1.ShowDialog() == DialogResult.OK))
+            {
+                string fileName = @Path.GetFileName(openFileDialog1.FileName);
+                string sourcePath = @Path.GetDirectoryName(openFileDialog1.FileName);
+                string targetPath = @Path.Combine(formMainWindow.strFilePath, "D:\\File TUGAS\\Semester 2\\Prak. PGD\\Acara 6 rill\\Resource\\Database\\Non Spatial");
+                string sourceFile = @Path.Combine(sourcePath, fileName);
+                string destFile = Path.Combine(targetPath, fileName);
+                File.Copy(sourceFile, destFile, true);
+                TextBox_Foto_Identify.Text = fileName;
+                pictureBox1.ImageLocation = destFile;
+            }
+            else
+            {
+                MessageBox.Show("Anda tidak memilih foto", "Report", MessageBoxButtons.OK);
+
+            }
+        }
+
+        private void btnHapusIdentify_Click(object sender, EventArgs e)
+        {
+            Shapefile sf = formMainWindowObject.axMap1.get_Shapefile(formMainWindowObject.handleCagarBudaya);
+
+            sf.StartEditingShapes();
+            if (sf.EditDeleteShape(Convert.ToInt32(TextBox_Identify.Text)))
+            {
+                MessageBox.Show("Anda gagal menghapus data. Error: " + sf.ErrorMsg[sf.LastErrorCode]);
+
+            }
+
+            else
+            {
+                MessageBox.Show("Anda berhasil menghapus data. Index: " + Convert.ToInt32(TextBox_Identify.Text));
+                formMainWindowObject.axMap1.Redraw2(tkRedrawType.RedrawAll);
+                formMainWindowObject.axMap1.Refresh();
+            }
+
+            sf.Save();
+            sf.StopEditingShapes();
+        }
+
+        private void btnCancel_Click(object sender, EventArgs e)
+        {
+            this.Hide();
+            Shapefile sf = formMainWindowObject.axMap1.get_Shapefile(formMainWindowObject.handleCagarBudaya);
+            sf.SelectNone();
+
+        }
+
+        private void formIdentify_Load(object sender, EventArgs e)
+        {
+
+         }
+    }
+}
+
