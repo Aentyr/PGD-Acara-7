@@ -1,0 +1,161 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using MapWinGIS;
+using AxMapWinGIS;
+
+namespace DEKSTOP9
+{
+    public partial class formAddPoint : Form
+    {
+        formMainWindow formMainWindowObject;
+        public formAddPoint(formMainWindow formMainWindowIntialized)
+        {
+            InitializeComponent();
+            formMainWindowObject = formMainWindowIntialized;
+        }
+
+        private void RadioButtonCursor_CheckedChanged(object sender, EventArgs e)
+        {
+            if (RadioButtonCursor.Checked == true)
+            {
+                formMainWindowObject.KryptonRibbonGroupButton_NormalMode.PerformClick();
+                formMainWindowObject.axMap1.MapCursor = tkCursor.crsrCross;
+                TextBoxX.Enabled = false;
+                TextBoxY.Enabled = false;
+            }
+            else
+            {
+                formMainWindowObject.axMap1.MapCursor = tkCursor.crsrMapDefault;
+                formMainWindowObject.KryptonRibbonGroupButton_NormalMode.PerformClick();
+                TextBoxX.Enabled = true;
+                TextBoxY.Enabled = true;
+            }
+
+        }
+
+        private void Button_Browse_AddPoint_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog ofd = new OpenFileDialog();
+            ofd.Title = "Browse the photo";
+            ofd.InitialDirectory = @"C:\";
+            ofd.Filter = "JPG (*.jpg)|*.jpg|JPEG (*.jpeg)|*.PNG (*.png)|*.png|All Files (*.*)|*.*";
+            ofd.FilterIndex = 1;
+            ofd.RestoreDirectory = true;
+
+            if ((ofd.ShowDialog() == DialogResult.OK))
+            {
+                string filename = @Path.GetFileName(ofd.FileName);
+                string sourcePath = @Path.GetDirectoryName(ofd.FileName);
+                string targetPath = @Path.Combine(formMainWindow.strFilePath, "D:\\File TUGAS\\Semester 2\\Prak. PGD\\Acara 6 rill\\Resource\\Database\\Non-spatial\\Foto");
+                string sourceFile = @Path.Combine(sourcePath, filename);
+                string destFile = @Path.Combine(targetPath, filename);
+                File.Copy(sourceFile, destFile, true);
+                TextBox_Foto_AddPoint.Text = filename;
+                pictureBox1.ImageLocation = destFile;
+            }
+            else
+            {
+                MessageBox.Show("Anda tidak memilih foto!", "Report", MessageBoxButtons.OK);
+            }
+        }
+
+        private void Button_Save_AddPoint_Click(object sender, EventArgs e)
+        {
+            Shapefile sf = formMainWindowObject.axMap1.get_Shapefile(formMainWindowObject.handleCagarBudaya);
+
+            var mypoint = new MapWinGIS.Point();
+            mypoint.x = Convert.ToDouble(TextBoxX.Text);
+            mypoint.y = Convert.ToDouble(TextBoxY.Text);
+
+            Shape myShape = new Shape();
+            myShape.Create(ShpfileType.SHP_POINT);
+            int myPointIndex = 0;
+            myShape.InsertPoint(mypoint, ref myPointIndex);
+            int myShapeIndex = 0;
+
+            sf.StartEditingShapes();
+            if (sf.EditInsertShape(myShape, ref myShapeIndex))
+            {
+                sf.Save();
+                sf.StartEditingTable();
+                sf.EditCellValue(sf.Table.get_FieldIndexByName("nama"),
+                    myShapeIndex, TextBox_Nama_AddPoint.Text);
+                sf.EditCellValue(sf.Table.get_FieldIndexByName("jenis_Aset"),
+                    myShapeIndex, TextBox_Jenis_AddPoint.Text);
+                sf.EditCellValue(sf.Table.get_FieldIndexByName("foto"),
+                    myShapeIndex, TextBox_Foto_AddPoint.Text);
+                sf.Save();
+                sf.StopEditingTable();
+            }
+            else
+            {
+                MessageBox.Show(sf.ErrorMsg[sf.LastErrorCode].ToString());
+            }
+            sf.Save();
+            sf.StopEditingShapes();
+
+            formMainWindowObject.axMap1.RemoveLayer(formMainWindowObject.handleCagarBudaya);
+            formMainWindowObject.axMap1.Redraw();
+            formMainWindowObject.axMap1.Redraw2(tkRedrawType.RedrawAll);
+            formMainWindowObject.axMap1.Redraw3(tkRedrawType.RedrawSkipDataLayers, true);
+            formMainWindowObject.axMap1.Refresh();
+            formMainWindowObject.legend1.Layers.Remove(formMainWindowObject.handleCagarBudaya);
+            formMainWindowObject.legend1.RedrawLegendAndMap();
+            formMainWindowObject.legend1.Refresh();
+            formMainWindowObject.Refresh();
+
+            formMainWindowObject.loadCagarBudaya();
+            formMainWindowObject.axMap1.Redraw();
+            formMainWindowObject.axMap1.Redraw2(tkRedrawType.RedrawAll);
+            formMainWindowObject.axMap1.Redraw3(tkRedrawType.RedrawSkipDataLayers, true);
+            formMainWindowObject.axMap1.Refresh();
+            formMainWindowObject.legend1.RedrawLegendAndMap();
+            formMainWindowObject.legend1.Refresh();
+            formMainWindowObject.Refresh();
+
+        }
+
+        private void Button_Cancel_AddPoint_Click(object sender, EventArgs e)
+        {
+            this.Hide();
+        }
+
+        private void formAddPoint_Load(object sender, EventArgs e)
+        {
+            RadioButtonCursor.Checked = true;
+            TextBoxX.Text = "";
+            TextBoxY.Text = "";
+            TextBox_Nama_AddPoint.Text = "";
+            TextBox_Jenis_AddPoint.Text = "";
+            TextBox_Foto_AddPoint.Text = "";
+            pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
+            pictureBox1.Image = null;
+        }
+
+        private void formAddPoint_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            e.Cancel = true;
+
+            this.Hide();
+            RadioButtonCursor.Checked = true;
+            TextBoxX.Text = "";
+            TextBoxY.Text = "";
+            TextBox_Nama_AddPoint.Text = "";
+            TextBox_Jenis_AddPoint.Text = "";
+            TextBox_Foto_AddPoint.Text = "";
+            pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
+            pictureBox1.Image = null;
+            formMainWindowObject.axMap1.MapCursor = tkCursor.crsrMapDefault;
+            formMainWindowObject.KryptonRibbonGroupButton_NormalMode.PerformClick();
+        }
+    }
+}
+
