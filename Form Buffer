@@ -1,0 +1,135 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Windows.Forms;
+using System.IO;
+using System.Reflection;
+using AxMapWinGIS;
+using MapWinGIS;
+
+namespace DEKSTOP9
+{
+    public partial class formBufferObject : Form
+    {
+        formMainWindow formMainWindowObject;
+        public formBufferObject(formMainWindow formMainWindowInitialized)
+        {
+            InitializeComponent();
+            formMainWindowObject = formMainWindowInitialized;
+        }
+
+        private void formBufferObject_Load(object sender, EventArgs e)
+        {
+            for (int i = 0; i < formMainWindowObject.legend1.Layers.Count; i++)
+            {
+                if (!ComboBoxInput.Items.Contains(formMainWindowObject.legend1.Layers[i].FileName))
+                {
+                    ComboBoxInput.Items.Add(formMainWindowObject.legend1.Layers[i].FileName);
+                }
+            }
+        }
+
+        private void ButtonBrowser_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog ofd = new OpenFileDialog();
+            string strfileshp = "Anda tidak menambahkan shapefile";
+
+            ofd.Title = "Browse Shapefile";
+            ofd.InitialDirectory = @"C\";
+            ofd.Filter = "Shapefile(*.shp)|*.shp|All file(*.*)|*.*";
+            ofd.FilterIndex = 1;
+            ofd.RestoreDirectory = true;
+
+            if ((ofd.ShowDialog() == DialogResult.OK))
+            {
+                strfileshp = ofd.FileName;
+                if (!ComboBoxInput.Items.Contains(strfileshp))
+                {
+                    ComboBoxInput.Items.Add(strfileshp);
+                }
+                ComboBoxInput.Text = strfileshp;
+            }
+            else
+            {
+                MessageBox.Show("Anda tidak menambahkan shapefile", "Report",
+                    MessageBoxButtons.OKCancel);
+            }
+        }
+
+        private void Browser2_Click(object sender, EventArgs e)
+        {
+            SaveFileDialog sfd = new SaveFileDialog();
+            string stroutputshp = "Anda tidak memilih output shapefile";
+
+            sfd.Title = "Output Shapefile";
+            sfd.InitialDirectory = @"C\";
+            sfd.Filter = "Shapefile(*.shp)|*.shp|All file(*.*)|*.*";
+            sfd.FilterIndex = 1;
+            sfd.RestoreDirectory = true;
+
+            if ((sfd.ShowDialog() == DialogResult.OK))
+            {
+                stroutputshp = sfd.FileName;
+                TextBoxOutput.Text = stroutputshp;
+            }
+            else
+            {
+                MessageBox.Show("Anda tidak memilih output shapefile", "Report",
+                    MessageBoxButtons.OKCancel);
+            }
+        }
+
+        private void ButtonOK_Click(object sender, EventArgs e)
+        {
+            string inputshapefile = Convert.ToString(ComboBoxInput.Text);
+            double inputdistance = Convert.ToDouble(TextBoxDistance.Text);
+            int inputsegment = Convert.ToInt16(TextBoxSegments.Text);
+            bool inputselected = Convert.ToBoolean(ComboBoxSelected.Text);
+            bool inputmerge = Convert.ToBoolean(ComboBoxMerge.Text);
+            bool inputoverwrite = Convert.ToBoolean(CheckBoxOverwrite.Checked);
+            string outputshapefile = Convert.ToString(TextBoxOutput.Text);
+
+            Shapefile sf = new Shapefile();
+            sf.Open(inputshapefile);
+
+            Utils utils = new Utils();
+
+            utils.ConvertDistance(tkUnitsOfMeasure.umMeters, tkUnitsOfMeasure.umDecimalDegrees, ref inputdistance);
+
+            //var utils = new Utils();
+            bool bufferprocess = utils.BufferByDistance(sf, inputdistance, inputsegment, inputselected, inputmerge, outputshapefile, inputoverwrite);
+
+            if (bufferprocess == true)
+            {
+                this.Hide();
+                MessageBox.Show("Success", "Report", MessageBoxButtons.OK);
+
+                MapWinGIS.Shapefile sfCagarBudaya = new MapWinGIS.Shapefile();
+                sfCagarBudaya.Open(outputshapefile, null);
+                int handleBufferResult = formMainWindowObject.legend1.Layers.Add(sfCagarBudaya, true);
+                formMainWindowObject.legend1.GetLayer(handleBufferResult).Name = System.IO.Path.GetFileName(outputshapefile);
+                sfCagarBudaya.Identifiable = true;
+            }
+            else
+            {
+                this.Hide();
+                MessageBox.Show("Gagal", "Report", MessageBoxButtons.OK);
+            }
+        }
+
+        private void ButtonCancel_Click(object sender, EventArgs e)
+        {
+            this.Hide();
+        }
+
+        private void formBufferObject_FormClosing(object sender, FormClosingEventArgs e)
+        {
+            e.Cancel = true;
+            this.Hide();
+        }
+    }
+}
