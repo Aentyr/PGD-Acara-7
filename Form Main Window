@@ -1,0 +1,694 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Windows.Forms;
+using System.IO;
+using System.Reflection;
+using AxMapWinGIS;
+using MapWinGIS;
+
+namespace DEKSTOP9
+{
+    public partial class formMainWindow : Form
+    {
+        public static string strAppPath = "";
+        public static string strFilePath = "";
+        public int handleBatasKec;
+        public int handleBatasDesa;
+        public int handleCagarBudaya;
+        public formAddPoint formAddPoint = null;
+        public formIdentify formIdentify = null;
+        public formBufferObject formBufferObject = null;
+
+        public formMainWindow()
+        {
+            InitializeComponent();
+            strAppPath = Path.GetDirectoryName(System.Diagnostics.Process.GetCurrentProcess().MainModule.FileName);
+            strFilePath = Path.Combine(strAppPath, "Resources");
+            legend1.Map = (MapWinGIS.Map)axMap1.GetOcx();
+            axMap1.SendMouseMove = true;
+            axMap1.SendMouseDown = true;
+            axMap1.SendMouseUp = true;
+            axMap1.MapCursor = tkCursor.crsrMapDefault;
+            KryptonRibbonGroupButton_Identify.PerformClick();
+            formIdentify = new formIdentify(this);
+            formAddPoint = new formAddPoint(this);
+            formBufferObject = new formBufferObject(this);
+
+        }
+
+        private void formMainWindow_Load(object sender, EventArgs e)
+        {
+            var utils = new Utils();
+
+            //ADD LAYER ADMIN 
+            string shpAdminKec = Path.Combine(strFilePath, "D:\\File TUGAS\\Semester 2\\Prak. PGD\\Acara 6 rill\\Resource\\Database\\Spatial\\Data vektor\\ADMINISTRASIDESA_AR_25K.shp");
+            MapWinGIS.Shapefile sfAdminKec = new MapWinGIS.Shapefile();
+            sfAdminKec.Open(shpAdminKec, null);
+            handleBatasKec = legend1.Layers.Add(sfAdminKec, true);
+            legend1.GetLayer(handleBatasKec).Name = "Batas Administrasi";
+
+            int fidKec = sfAdminKec.Table.get_FieldIndexByName("DESA");
+            sfAdminKec.Categories.Generate(fidKec, tkClassificationType.ctUniqueValues, 0);
+            ColorScheme schemeAdminKec = new ColorScheme();
+            schemeAdminKec.SetColors2(tkMapColor.Chocolate, tkMapColor.Cyan);
+            sfAdminKec.Categories.ApplyColorScheme3(tkColorSchemeType.ctSchemeGraduated,
+                schemeAdminKec, tkShapeElements.shElementFill, 0, Convert.ToInt32(sfAdminKec.Categories.Count / 2));
+
+            schemeAdminKec.SetColors2(tkMapColor.Brown, tkMapColor.DarkOrange);
+            sfAdminKec.Categories.ApplyColorScheme3(tkColorSchemeType.ctSchemeGraduated,
+                schemeAdminKec, tkShapeElements.shElementFill, (Convert.ToInt32(sfAdminKec.Categories.Count / 2) + 1),
+                (sfAdminKec.Categories.Count - 1));
+            axMap1.Redraw();
+
+            //ADD LAYER JALAN
+            string shpJalan = Path.Combine(strFilePath, "D:\\File TUGAS\\Semester 2\\Prak. PGD\\Acara 6 rill\\Resource\\Database\\Spatial\\Data vektor\\JALAN_LN_25K.shp");
+            MapWinGIS.Shapefile sfJalan = new MapWinGIS.Shapefile();
+            sfJalan.Open(shpJalan, null);
+            int handleJalan = legend1.Layers.Add(sfJalan, true);
+            legend1.GetLayer(handleJalan).Name = "Jaringan Jalan";
+
+            LinePattern patternArteri = new LinePattern();
+            patternArteri.AddLine(utils.ColorByName(tkMapColor.Red), 2.0f, tkDashStyle.dsSolid);
+            ShapefileCategory crArteri = sfJalan.Categories.Add("Jalan Arteri");
+            crArteri.Expression = "[REMARK] = \"Jalan Arteri\"";
+            crArteri.DrawingOptions.LinePattern = patternArteri;
+            crArteri.DrawingOptions.UseLinePattern = true;
+
+            LinePattern patternKolektor = new LinePattern();
+            patternKolektor.AddLine(utils.ColorByName(tkMapColor.Red), 1.0f, tkDashStyle.dsSolid);
+            ShapefileCategory crKolektor = sfJalan.Categories.Add("Jalan Kolektor");
+            crKolektor.Expression = "[REMARK] = \"Jalan Kolektor\"";
+            crKolektor.DrawingOptions.LinePattern = patternKolektor;
+            crKolektor.DrawingOptions.UseLinePattern = true;
+
+            LinePattern patternLain = new LinePattern();
+            patternLain.AddLine(utils.ColorByName(tkMapColor.Red), 1.0f, tkDashStyle.dsSolid);
+            ShapefileCategory crLain = sfJalan.Categories.Add("Jalan Lain");
+            crLain.Expression = "[REMARK] = \"Jalan Lain\"";
+            crLain.DrawingOptions.LinePattern = patternLain;
+            crLain.DrawingOptions.UseLinePattern = true;
+
+            LinePattern patternLokal = new LinePattern();
+            patternLokal.AddLine(utils.ColorByName(tkMapColor.Red), 2.0f, tkDashStyle.dsSolid);
+            ShapefileCategory crLokal = sfJalan.Categories.Add("Jalan Lokal");
+            crLokal.Expression = "[REMARK] = \"Jalan Lokal\"";
+            crLokal.DrawingOptions.LinePattern = patternLokal;
+            crLokal.DrawingOptions.UseLinePattern = true;
+
+
+            sfJalan.DefaultDrawingOptions.Visible = false;
+            sfJalan.Categories.ApplyExpressions();
+            axMap1.Redraw();
+
+        }
+
+        public void loadCagarBudaya()
+        {
+            string shpCagarBudaya = Path.Combine(strFilePath, "D:\\File TUGAS\\Semester 2\\Prak. PGD\\Acara 6 rill\\Resource\\Database\\Spatial\\Data vektor\\CAGARBUDAYA_PT_25K.shp");
+            MapWinGIS.Shapefile sfCagarBudaya = new MapWinGIS.Shapefile();
+            sfCagarBudaya.Open(shpCagarBudaya, null);
+            handleCagarBudaya = legend1.Layers.Add(sfCagarBudaya, true);
+            legend1.GetLayer(handleCagarBudaya).Name = "Titik Cagar Budaya";
+
+            //atribut
+            DataGridViewAttribute.Rows.Clear();
+
+            KryptonRibbonGroupComboBoxCariKecamatan.Items.Clear();
+
+            for (int i = 0; i < sfCagarBudaya.Table.NumFields; i++)
+            {
+                DataGridViewAttribute.Columns.Add(sfCagarBudaya.Table.Field[i].Name, sfCagarBudaya.Table.Field[i].Name);
+            }
+            DataGridViewAttribute.Columns.Add("fid", "fid");
+
+            for (int i = 0; i < sfCagarBudaya.Table.NumRows; i++)
+            {
+                string[] myAttributeRow = new string[sfCagarBudaya.Table.NumFields + 1];
+                for (int j = 0; j < sfCagarBudaya.Table.NumFields; j++)
+                {
+                    myAttributeRow[j] = sfCagarBudaya.Table.CellValue[j, i].ToString();
+                }
+                myAttributeRow[sfCagarBudaya.Table.NumFields] = i.ToString();
+                DataGridViewAttribute.Rows.Insert(i, myAttributeRow);
+
+                if (!KryptonRibbonGroupComboBoxCariKecamatan.Items.Contains(
+                   sfCagarBudaya.Table.CellValue[sfCagarBudaya.FieldIndexByName["KECAMATAN"], i].ToString()))
+                {
+                    KryptonRibbonGroupComboBoxCariKecamatan.Items.Add(
+                    sfCagarBudaya.Table.CellValue[sfCagarBudaya.FieldIndexByName["KECAMATAN"], i].ToString());
+                }
+            }
+
+            DataGridViewAttribute.ClearSelection();
+            KryptonRibbonGroupComboBoxCariKecamatan.Sorted = true;
+        }
+
+        private void kryptonRibbonGroupButton_AddData_Click(object sender, EventArgs e)
+        {
+            OpenFileDialog ofd = new OpenFileDialog();
+            string strfileshp = "Tidak ada shp yang dipilih!";
+
+            ofd.Title = "Browse Shapefile";
+            ofd.InitialDirectory = @"C:\";
+            ofd.Filter = "Shapefile (*.shp)|*.shp|All files (*.*)|*.*";
+            ofd.FilterIndex = 1;
+            ofd.RestoreDirectory = true;
+
+            if ((ofd.ShowDialog() == DialogResult.OK))
+            {
+                strfileshp = ofd.FileName;
+
+                MapWinGIS.Shapefile sfCagarBudaya = new MapWinGIS.Shapefile();
+                sfCagarBudaya.Open(strfileshp, null);
+                int handleBufferResult = legend1.Layers.Add(sfCagarBudaya, true);
+                legend1.GetLayer(handleBufferResult).Name = System.IO.Path.GetFileName(strfileshp);
+                sfCagarBudaya.Identifiable = true;
+
+                ////if (!formBufferObject.ComboBoxInput.Items.Contains(strfileshp))
+                //{
+                //    formBufferObject.ComboBoxInput.Items.Add(strfileshp);
+                //}
+                //formBufferObject.ComboBoxInput.Text = strfileshp;
+            }
+            else
+            {
+                MessageBox.Show(strfileshp, "Report", MessageBoxButtons.OKCancel);
+            }
+        }
+
+        private void kryptonRibbonGroupButton_RemoveData_Click(object sender, EventArgs e)
+        {
+            legend1.Layers.Remove(legend1.SelectedLayer);
+        }
+
+        private void DataGridViewAttribute_RowHeaderMouseDoubleClick(object sender, DataGridViewCellMouseEventArgs e)
+        {
+            if (DataGridViewAttribute.SelectedRows.Count > 0)
+            {
+                Shapefile sf = axMap1.get_Shapefile(handleBatasKec);
+                sf.SelectNone();
+
+                for (int i = 0; i < DataGridViewAttribute.SelectedRows.Count; i++)
+                {
+                    sf.set_ShapeSelected(Convert.ToInt32(DataGridViewAttribute.SelectedRows[i].Cells["fid"].Value), true);
+                }
+                axMap1.ZoomToSelected(handleBatasKec);
+            }
+        }
+
+        private void DataGridViewAttribute_SelectionChanged(object sender, EventArgs e)
+        {
+            if (DataGridViewAttribute.SelectedRows.Count > 0)
+            {
+                Shapefile sf = axMap1.get_Shapefile(handleCagarBudaya);
+                sf.SelectNone();
+
+                for (int i = 0; i < DataGridViewAttribute.SelectedRows.Count; i++)
+                {
+                    sf.set_ShapeSelected(Convert.ToInt32(DataGridViewAttribute.SelectedRows[i].Cells["fid"].Value), true);
+                }
+                axMap1.ZoomToSelected(handleCagarBudaya);
+            }
+        }
+
+        private void KryptonRibbonGroupComboBoxCariKecamatan_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (!(KryptonRibbonGroupComboBoxCariKecamatan.Text == "Cari Kecamatan"))
+            { 
+                KryptonRibbonGroupComboBoxCariDesa.Items.Clear();
+                KryptonRibbonGroupComboBoxCariDesa.Text = "Cari Desa";
+                KryptonRibbonGroupComboBoxCariAset.Items.Clear();
+                KryptonRibbonGroupComboBoxCariAset.Text = "Cari Fasilitas Cagar Budaya";
+
+                Shapefile sfBatasKec = axMap1.get_Shapefile(handleBatasKec);
+                sfBatasKec.SelectNone();
+
+                string errorBatasKec = "";
+                object resultBatasKec = null;
+                string queryBatasKec = "[NAMOBJ] = \"" + KryptonRibbonGroupComboBoxCariKecamatan.Text + "\"";
+
+                if (sfBatasKec.Table.Query(queryBatasKec, ref resultBatasKec, ref errorBatasKec))
+                {
+                    int[] shapeBatasKec = resultBatasKec as int[];
+                    if (shapeBatasKec != null)
+                    {
+                        for (int i = 0; i < shapeBatasKec.Length; i++)
+                        {
+                            sfBatasKec.set_ShapeSelected(shapeBatasKec[i], true);
+                            if (!KryptonRibbonGroupComboBoxCariDesa.Items.Contains(
+                                sfBatasKec.CellValue[sfBatasKec.FieldIndexByName["DESA"], shapeBatasKec[i]].ToString()))
+                            {
+                                KryptonRibbonGroupComboBoxCariDesa.Items.Add(
+                                    sfBatasKec.CellValue[sfBatasKec.FieldIndexByName["DESA"], shapeBatasKec[i]].ToString());
+                            }
+                        }
+                        KryptonRibbonGroupComboBoxCariDesa.Sorted = true;
+                        axMap1.ZoomToSelected(handleBatasKec);
+                    }
+                }
+
+                Shapefile sfCagarBudaya = axMap1.get_Shapefile(handleCagarBudaya); ;
+                sfCagarBudaya.SelectNone();
+
+                string errorCagarBudaya = "";
+                object resultCagarBudaya = null;
+                string queryCagarBudaya = "[KECAMATAN] = \"" + KryptonRibbonGroupComboBoxCariKecamatan.Text + "\"";
+
+                if (sfCagarBudaya.Table.Query(queryCagarBudaya, ref resultCagarBudaya, ref errorCagarBudaya))
+                {
+                    int[] shapeCagarBudaya = resultCagarBudaya as int[];
+                    if (shapeCagarBudaya != null)
+                    {
+                        if (!(shapeCagarBudaya.Length == 0))
+                        {
+                            MessageBox.Show("Pada Kecamatan " + KryptonRibbonGroupComboBoxCariKecamatan.Text +
+                                " Ditemukan " + shapeCagarBudaya.Length.ToString() +
+                                " Fasilitas Cagar Budaya Kota Klaten..", "Informasi Cagar Budaya", MessageBoxButtons.OK);
+                        }
+                        else
+                        {
+                            MessageBox.Show("Pada Kecamatan " + KryptonRibbonGroupComboBoxCariKecamatan.Text +
+                                " Tidak Ditemukan Fasilitas Cagar Budaya Kota Klaten...",
+                                "Informasi Cagar Budaya", MessageBoxButtons.OK);
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("Pada Kecamatan " + KryptonRibbonGroupComboBoxCariKecamatan.Text +
+                            " Tidak Ditemukan Fasilitas Cagar Budaya Kota Klaten...",
+                            "Informasi Cagar Budaya", MessageBoxButtons.OK);
+                    }
+                }
+            }
+        }
+
+        private void KryptonRibbonGroupComboBoxCariDesa_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (!(KryptonRibbonGroupComboBoxCariKecamatan.Text == "Cari Kecamatan")
+                && !(KryptonRibbonGroupComboBoxCariDesa.Text == "Cari Desa"))
+            {
+                KryptonRibbonGroupComboBoxCariAset.Items.Clear();
+                KryptonRibbonGroupComboBoxCariAset.Text = "Cari Fasilitas Cagar Budaya";
+
+                Shapefile sfBatasDesa = axMap1.get_Shapefile(handleBatasDesa);
+                sfBatasDesa.SelectNone();
+
+                string errorBatasDesa = "";
+                object resultBatasDesa = null;
+                string queryBatasDesa = "[NAMOBJ] = \"" + KryptonRibbonGroupComboBoxCariKecamatan.Text +
+                    "\" AND [DESA] = \"" + KryptonRibbonGroupComboBoxCariDesa.Text + "\"";
+
+                if (sfBatasDesa.Table.Query(queryBatasDesa, ref resultBatasDesa, ref errorBatasDesa))
+                {
+                    int[] shapeBatasDesa = resultBatasDesa as int[];
+                    if (shapeBatasDesa != null)
+                    {
+                        for (int i = 0; i < shapeBatasDesa.Length; i++)
+                        {
+                            sfBatasDesa.set_ShapeSelected(shapeBatasDesa[i], true);
+                        }
+                        axMap1.ZoomToSelected(handleBatasKec);
+                    }
+                }
+
+                Shapefile sfCagarBudaya = axMap1.get_Shapefile(handleCagarBudaya); ;
+                sfCagarBudaya.SelectNone();
+
+                string errorCagarBudaya = "";
+                object resultCagarBudaya = null;
+                string queryCagarBudaya = "[KECAMATAN] = \"" + KryptonRibbonGroupComboBoxCariKecamatan.Text +
+                    "\" AND [DESA] = \"" + KryptonRibbonGroupComboBoxCariDesa.Text + "\"";
+
+                if (sfCagarBudaya.Table.Query(queryCagarBudaya, ref resultCagarBudaya, ref errorCagarBudaya))
+                {
+                    int[] shapeCagarBudaya = resultCagarBudaya as int[];
+                    if (shapeCagarBudaya != null)
+                    {
+                        if (!(shapeCagarBudaya.Length == 0))
+                        {
+                            for (int i = 0; i < shapeCagarBudaya.Length; i++)
+                            {
+                                if (!KryptonRibbonGroupComboBoxCariAset.Items.Contains(
+                                     sfCagarBudaya.CellValue[sfCagarBudaya.FieldIndexByName["Name"],
+                                     shapeCagarBudaya[i]].ToString()))
+                                {
+                                    KryptonRibbonGroupComboBoxCariAset.Items.Add(
+                                        sfCagarBudaya.CellValue[sfCagarBudaya.FieldIndexByName["Name"],
+                                        shapeCagarBudaya[i]].ToString());
+                                }
+                            }
+                            KryptonRibbonGroupComboBoxCariAset.Sorted = true;
+                            MessageBox.Show("Pada Kecamatan " + KryptonRibbonGroupComboBoxCariKecamatan.Text +
+                                " Desa " + KryptonRibbonGroupComboBoxCariDesa + " Ditemukan " +
+                                shapeCagarBudaya.Length.ToString() + " Fasilitas Cagar Budaya milik Kota Klaten..",
+                                "Informasi Cagar Budaya", MessageBoxButtons.OK);
+                        }
+                        else
+                        {
+                            MessageBox.Show("Pada Kecamatan " + KryptonRibbonGroupComboBoxCariKecamatan.Text +
+                                 " Desa " + KryptonRibbonGroupComboBoxCariDesa.Text +
+                                " Tidak Ditemukan Cagar Budaya milik Kota Klaten..",
+                                "Informasi Cagar Budaya", MessageBoxButtons.OK);
+                        }
+                    }
+                    else
+                    {
+                        MessageBox.Show("Pada Kecamatan " + KryptonRibbonGroupComboBoxCariKecamatan.Text +
+                                 " Desa " + KryptonRibbonGroupComboBoxCariDesa.Text +
+                                " Tidak Ditemukan Cagar Budaya milik Kota Klaten..",
+                                "Informasi Cagar Budaya", MessageBoxButtons.OK);
+                    }
+                }
+            }
+        }
+
+        private void KryptonRibbonGroupComboBoxCariAset_SelectedIndexChanged(object sender, EventArgs e)
+        {
+            if (!(KryptonRibbonGroupComboBoxCariKecamatan.Text == "Cari Kecamatan")
+                && !(KryptonRibbonGroupComboBoxCariDesa.Text == "Cari Desa")
+                && !(KryptonRibbonGroupComboBoxCariAset.Text == "Cari Cagar Budaya"))
+            {
+
+                Shapefile sfBatasDesa = axMap1.get_Shapefile(handleBatasDesa);
+                sfBatasDesa.SelectNone();
+
+                Shapefile sfCagarBudaya = axMap1.get_Shapefile(handleCagarBudaya);
+                sfCagarBudaya.SelectNone();
+
+                string errorCagarBudaya = "";
+                object resultCagarBudaya = null;
+                string queryCagarBudaya = "[KECAMATAN] = \"" + KryptonRibbonGroupComboBoxCariKecamatan.Text +
+                    "\" AND [DESA] = \"" + KryptonRibbonGroupComboBoxCariDesa.Text +
+                    "\" AND [Name] = \"" + KryptonRibbonGroupComboBoxCariAset.Text + "\"";
+
+                if (sfCagarBudaya.Table.Query(queryCagarBudaya, ref resultCagarBudaya, ref errorCagarBudaya))
+                {
+                    int[] shapeCagarBudaya = resultCagarBudaya as int[];
+                    if (shapeCagarBudaya != null)
+                    {
+                        for (int i = 0; i < shapeCagarBudaya.Length; i++)
+                        {
+                            sfCagarBudaya.set_ShapeSelected(shapeCagarBudaya[i], true);
+                        }
+                        axMap1.ZoomToSelected(handleCagarBudaya);
+                        axMap1.ZoomIn(0.2);
+                        axMap1.ZoomIn(0.2);
+                        axMap1.ZoomIn(0.2);
+                        axMap1.ZoomIn(0.2);
+                        axMap1.ZoomIn(0.2);
+                    }
+                }
+            }
+        }
+
+        private void kryptonRibbonGroupButton_AddPoint_Click(object sender, EventArgs e)
+        {
+            formAddPoint.Show();
+            formAddPoint.BringToFront();
+        }
+
+        private void kryptonRibbonGroupButton_Buffer_Click(object sender, EventArgs e)
+        {
+            formBufferObject.Show();
+            formBufferObject.BringToFront();
+        }
+
+        private void axMap1_MouseUpEvent(object sender, _DMapEvents_MouseUpEvent e)
+        {
+            double projx = 0.0;
+            double projy = 0.0;
+            axMap1.PixelToProj(e.x, e.y, ref projx, ref projy);
+            object result = null;
+            Extents ext = new Extents();
+            ext.SetBounds(projx, projy, 0.0, projx, projy, 0.0);
+            double tolerance = 100; //meters
+            Utils utils = new Utils();
+            utils.ConvertDistance(tkUnitsOfMeasure.umMeters, tkUnitsOfMeasure.umDecimalDegrees, ref tolerance);
+
+            if (KryptonRibbonGroupButton_Identify.Checked == true)
+            {
+                Shapefile sf = axMap1.get_Shapefile(handleCagarBudaya);
+                sf.SelectNone();
+                axMap1.Redraw2(tkRedrawType.RedrawAll);
+                axMap1.Refresh();
+
+                formIdentify.Hide();
+
+                if (sf.SelectShapes(ext, tolerance, SelectMode.INTERSECTION, ref result))
+                {
+                    int[] shapes = result as int[];
+                    if (shapes.Length > 0)
+                    {
+                        sf.SelectNone();
+                        sf.set_ShapeSelected(shapes[0], true);
+                        axMap1.Redraw2(tkRedrawType.RedrawAll);
+                        axMap1.Refresh();
+
+                        formIdentify.TextBox_Identify.Text = shapes[0].ToString();
+
+                        formIdentify.TextBox_Nama_Identify.Text = sf.get_CellValue(
+                            sf.Table.get_FieldIndexByName("Name"), shapes[0]).ToString();
+                        formIdentify.TextBox_Jenis_Identify.Text = sf.get_CellValue(
+                            sf.Table.get_FieldIndexByName("LAYER"), shapes[0]).ToString();
+                        formIdentify.TextBox_Foto_Identify.Text = sf.get_CellValue(
+                            sf.Table.get_FieldIndexByName("Foto"), shapes[0]).ToString();
+
+                        formIdentify.pictureBox1.SizeMode = PictureBoxSizeMode.StretchImage;
+                        formIdentify.pictureBox1.ImageLocation = Path.Combine(strFilePath,
+                            "D:\\File TUGAS\\Semester 2\\Prak. PGD\\Acara 6 rill\\Resource\\Database\\Non-spatial\\Foto" + sf.get_CellValue(sf.Table.get_FieldIndexByName
+                            ("Foto"), shapes[0]).ToString());
+
+                        formIdentify.Show();
+
+                        formIdentify.BringToFront();
+
+
+                    }
+                }
+
+
+            }
+            else if (axMap1.MapCursor == tkCursor.crsrCross)
+            {
+                formAddPoint.TextBoxX.Text = Convert.ToString(projx);
+                formAddPoint.TextBoxY.Text = Convert.ToString(projy);
+            }
+        }
+
+        private void KryptonRibbonGroupButton_NormalMode_Click(object sender, EventArgs e)
+        {
+            axMap1.MapCursor = tkCursor.crsrMapDefault;
+            if (KryptonRibbonGroupButton_NormalMode.Checked == true)
+            {
+                axMap1.CursorMode = MapWinGIS.tkCursorMode.cmNone;
+                //KryptonRibbonGroupButtonKursorNormal.Checked = false;
+                KryptonRibbonGroupButton_ZoomInMode.Checked = false;
+                KryptonRibbonGroupButton_ZoomOutMode.Checked = false;
+                KryptonRibbonGroupButton_PanMode.Checked = false;
+                KryptonRibbonGroupButton_Identify.Checked = false;
+                KryptonRibbonGroupButton_MeasureArea.Checked = false;
+                KryptonRibbonGroupButton_MeasureLength.Checked = false;
+            }
+            else
+            {
+                KryptonRibbonGroupButton_NormalMode.Checked = true;
+                axMap1.CursorMode = MapWinGIS.tkCursorMode.cmNone;
+            }
+        }
+
+        private void KryptonRibbonGroupButton_ZoomInMode_Click(object sender, EventArgs e)
+        {
+            axMap1.MapCursor = tkCursor.crsrMapDefault;
+            if (KryptonRibbonGroupButton_ZoomInMode.Checked == true)
+            {
+                axMap1.CursorMode = MapWinGIS.tkCursorMode.cmZoomIn;
+                KryptonRibbonGroupButton_NormalMode.Checked = false;
+                //KryptonRibbonGroupButtonKursorZIn.Checked = false;
+                KryptonRibbonGroupButton_ZoomOutMode.Checked = false;
+                KryptonRibbonGroupButton_PanMode.Checked = false;
+                KryptonRibbonGroupButton_Identify.Checked = false;
+                KryptonRibbonGroupButton_MeasureArea.Checked = false;
+                KryptonRibbonGroupButton_MeasureLength.Checked = false;
+            }
+            else
+            {
+                KryptonRibbonGroupButton_NormalMode.Checked = true;
+                axMap1.CursorMode = MapWinGIS.tkCursorMode.cmNone;
+            }
+        }
+
+        private void KryptonRibbonGroupButton_ZoomOutMode_Click(object sender, EventArgs e)
+        {
+            axMap1.MapCursor = tkCursor.crsrMapDefault;
+            if (KryptonRibbonGroupButton_ZoomOutMode.Checked == true)
+            {
+                axMap1.CursorMode = MapWinGIS.tkCursorMode.cmZoomOut;
+                KryptonRibbonGroupButton_NormalMode.Checked = false;
+                KryptonRibbonGroupButton_ZoomInMode.Checked = false;
+                //KryptonRibbonGroupButtonKursorZOut.Checked = false;
+                KryptonRibbonGroupButton_PanMode.Checked = false;
+                KryptonRibbonGroupButton_Identify.Checked = false;
+                KryptonRibbonGroupButton_MeasureArea.Checked = false;
+                KryptonRibbonGroupButton_MeasureLength.Checked = false;
+            }
+            else
+            {
+                KryptonRibbonGroupButton_NormalMode.Checked = true;
+                axMap1.CursorMode = MapWinGIS.tkCursorMode.cmNone;
+            }
+        }
+
+        private void KryptonRibbonGroupButton_PanMode_Click(object sender, EventArgs e)
+        {
+            axMap1.MapCursor = tkCursor.crsrMapDefault;
+            if (KryptonRibbonGroupButton_PanMode.Checked == true)
+            {
+                axMap1.CursorMode = MapWinGIS.tkCursorMode.cmPan;
+                KryptonRibbonGroupButton_NormalMode.Checked = false;
+                KryptonRibbonGroupButton_ZoomInMode.Checked = false;
+                KryptonRibbonGroupButton_ZoomOutMode.Checked = false;
+                //KryptonRibbonGroupButtonPan.Checked = false;
+                KryptonRibbonGroupButton_Identify.Checked = false;
+                KryptonRibbonGroupButton_MeasureArea.Checked = false;
+                KryptonRibbonGroupButton_MeasureLength.Checked = false;
+            }
+            else
+            {
+                KryptonRibbonGroupButton_NormalMode.Checked = true;
+                axMap1.CursorMode = MapWinGIS.tkCursorMode.cmNone;
+            }
+        }
+
+        private void KryptonRibbonGroupButton_ZoomIn_Click_Click(object sender, EventArgs e)
+        {
+            axMap1.ZoomIn(0.2);
+        }
+
+        private void KryptonRibbonGroupButton_ZoomOut_Click_Click(object sender, EventArgs e)
+        {
+            axMap1.ZoomOut(0.2);
+        }
+
+        private void KryptonRibbonGroupButton_FullExtent_Click_Click(object sender, EventArgs e)
+        {
+            axMap1.ZoomToMaxExtents();
+        }
+
+        private void KryptonRibbonGroupButton_ZoomPrev_Click_Click(object sender, EventArgs e)
+        {
+            axMap1.ZoomToPrev();
+        }
+
+        private void KryptonRibbonGroupButton_ZoomNext_Click_Click(object sender, EventArgs e)
+        {
+            axMap1.ZoomToNext();
+        }
+
+        private void KryptonRibbonGroupButton_Identify_Click(object sender, EventArgs e)
+        {
+            axMap1.MapCursor = tkCursor.crsrMapDefault;
+            if (KryptonRibbonGroupButton_Identify.Checked == true)
+            {
+                axMap1.CursorMode = MapWinGIS.tkCursorMode.cmIdentify;
+                KryptonRibbonGroupButton_NormalMode.Checked = false;
+                KryptonRibbonGroupButton_ZoomInMode.Checked = false;
+                KryptonRibbonGroupButton_ZoomOutMode.Checked = false;
+                KryptonRibbonGroupButton_PanMode.Checked = false;
+                //KryptonRibbonGroupButtonIdentify.Checked = false;
+                KryptonRibbonGroupButton_MeasureArea.Checked = false;
+                KryptonRibbonGroupButton_MeasureLength.Checked = false;
+            }
+            else
+            {
+                KryptonRibbonGroupButton_NormalMode.Checked = true;
+                axMap1.CursorMode = MapWinGIS.tkCursorMode.cmNone;
+            }
+        }
+
+        private void KryptonRibbon1_SelectedTabChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void KryptonRibbonGroupButton_MeasureLength_Click(object sender, EventArgs e)
+        {
+            axMap1.MapCursor = tkCursor.crsrMapDefault;
+            if (KryptonRibbonGroupButton_MeasureLength.Checked == true)
+            {
+                axMap1.CursorMode = MapWinGIS.tkCursorMode.cmMeasure;
+                axMap1.Measuring.MeasuringType = tkMeasuringType.MeasureDistance;
+                KryptonRibbonGroupButton_NormalMode.Checked = false;
+                KryptonRibbonGroupButton_ZoomInMode.Checked = false;
+                KryptonRibbonGroupButton_ZoomOutMode.Checked = false;
+                KryptonRibbonGroupButton_PanMode.Checked = false;
+                KryptonRibbonGroupButton_Identify.Checked = false;
+                KryptonRibbonGroupButton_MeasureArea.Checked = false;
+                //KryptonRibbonGroupButtonLength.Checked = false;
+            }
+            else
+            {
+                KryptonRibbonGroupButton_NormalMode.Checked = true;
+                axMap1.CursorMode = MapWinGIS.tkCursorMode.cmNone;
+            }
+        }
+
+        private void KryptonRibbonGroupButton_MeasureArea_Click(object sender, EventArgs e)
+        {
+
+            axMap1.MapCursor = tkCursor.crsrMapDefault;
+            if (KryptonRibbonGroupButton_MeasureArea.Checked == true)
+            {
+                axMap1.CursorMode = MapWinGIS.tkCursorMode.cmMeasure;
+                axMap1.Measuring.MeasuringType = tkMeasuringType.MeasureArea;
+                KryptonRibbonGroupButton_NormalMode.Checked = false;
+                KryptonRibbonGroupButton_ZoomInMode.Checked = false;
+                KryptonRibbonGroupButton_ZoomOutMode.Checked = false;
+                KryptonRibbonGroupButton_PanMode.Checked = false;
+                KryptonRibbonGroupButton_Identify.Checked = false;
+                //KryptonRibbonGroupButtonArea.Checked = false;
+                KryptonRibbonGroupButton_MeasureLength.Checked = false;
+            }
+            else
+            {
+                KryptonRibbonGroupButton_NormalMode.Checked = true;
+                axMap1.CursorMode = MapWinGIS.tkCursorMode.cmNone;
+            }
+        }
+
+        private void radioButtonNone_CheckedChanged(object sender, EventArgs e)
+        {
+            axMap1.TileProvider = MapWinGIS.tkTileProvider.OpenHumanitarianMap;
+            axMap1.Redraw();
+            axMap1.Refresh();
+        }
+
+        private void radioButtonOpenStreetMap_CheckedChanged(object sender, EventArgs e)
+        {
+            axMap1.TileProvider = MapWinGIS.tkTileProvider.OpenStreetMap;
+            axMap1.Redraw();
+            axMap1.Refresh();
+        }
+
+        private void radioButtonOpenSycleMap_CheckedChanged(object sender, EventArgs e)
+        {
+            axMap1.TileProvider = MapWinGIS.tkTileProvider.OpenCycleMap;
+            axMap1.Redraw();
+            axMap1.Refresh();
+        }
+
+        private void radioButtonBingMaps_CheckedChanged(object sender, EventArgs e)
+        {
+
+        }
+
+        private void radioButtonBingSatellite_CheckedChanged(object sender, EventArgs e)
+        {
+
+        }
+    }
+}
