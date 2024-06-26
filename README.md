@@ -1,9 +1,3 @@
-Berikut adalah Source code yang saya gunakan untuk Mata Kuliah: Pemrograman Spatial Desktop
-
-Nama : Muhammad Naufal Hidayat
-
-NIM : 23/520500/SV/23249
-
-Prodi: Sistem Informasi Geografis
-
-Departemen Teknologi Kebumian, Sekolah Vokasi, Universitas Gadjah Mada
+Code ini berguna untuk pembuatan aplikasi spasial desktop dengan menggunakan MapWinGIS
+Aplikasi ini akan membuat sebuah muka peta dan datanya adalah Cagar budaya Klaten
+Shapefile dapat diganti pada Resource
